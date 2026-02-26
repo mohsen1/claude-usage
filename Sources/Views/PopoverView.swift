@@ -55,7 +55,9 @@ struct PopoverView: View {
     private var footer: some View {
         HStack {
             Button("Add Account") {
-                showingLogin = true
+                LoginWindowController.shared.showLogin { account in
+                    store.addAccount(account)
+                }
             }
             .font(.caption)
             .buttonStyle(.plain)

@@ -8,6 +8,7 @@ struct ClaudeUsageApp: App {
     var body: some Scene {
         MenuBarExtra {
             PopoverView(store: store)
+                .onAppear { store.load() }
         } label: {
             Text(store.menuBarText)
                 .monospacedDigit()
