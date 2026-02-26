@@ -7,10 +7,16 @@ struct LoginWebView: NSViewRepresentable {
     func makeNSView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
         config.websiteDataStore = .nonPersistent()
+        config.preferences.setValue(true, forKey: "allowFileAccessFromFileURLs")
+        let prefs = WKWebpagePreferences()
+        prefs.allowsContentJavaScript = true
+        config.defaultWebpagePreferences = prefs
+
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = context.coordinator
-        webView.customUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15"
-        webView.load(URLRequest(url: URL(string: "https://claude.ai/settings/usage")!))
+        webView.uiDelegate = context.coordinator
+        webView.customUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.3 Safari/605.1.15"
+        webView.load(URLRequest(url: URL(string: "https://claude.ai/login")!))
         context.coordinator.startCookiePolling(webView: webView)
         return webView
     }
@@ -21,10 +27,11 @@ struct LoginWebView: NSViewRepresentable {
         Coordinator(onSessionKey: onSessionKey)
     }
 
-    class Coordinator: NSObject, WKNavigationDelegate {
+    class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
         let onSessionKey: (String) -> Void
         private var timer: Timer?
         private var found = false
+        private var popupWebView: WKWebView?
 
         init(onSessionKey: @escaping (String) -> Void) {
             self.onSessionKey = onSessionKey
@@ -45,6 +52,23 @@ struct LoginWebView: NSViewRepresentable {
                     }
                 }
             }
+        }
+
+        // MARK: - WKNavigationDelegate
+
+        func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+            decisionHandler(.allow)
+        }
+
+        // MARK: - WKUIDelegate
+
+        // Handle popup windows (Google OAuth opens in a new window)
+        func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
+            // Load the popup URL in the same WebView instead of opening a new one
+            if let url = navigationAction.request.url {
+                webView.load(URLRequest(url: url))
+            }
+            return nil
         }
 
         deinit {
