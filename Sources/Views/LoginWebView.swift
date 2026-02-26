@@ -14,7 +14,8 @@ struct LoginWebView: NSViewRepresentable {
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = context.coordinator
         webView.uiDelegate = context.coordinator
-        webView.customUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.3 Safari/605.1.15"
+        // iPhone UA — forces mobile layout, Google serves redirect-based OAuth
+        webView.customUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.3 Mobile/15E148 Safari/604.1"
         webView.load(URLRequest(url: URL(string: "https://claude.ai/login")!))
         context.coordinator.mainWebView = webView
         context.coordinator.startCookiePolling(webView: webView)
@@ -65,9 +66,7 @@ struct LoginWebView: NSViewRepresentable {
 
         // MARK: - WKUIDelegate
 
-        // Handle popup windows — Google OAuth opens a new window
         func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
-            // Create an actual popup WKWebView sharing the same data store
             let popup = WKWebView(frame: .zero, configuration: configuration)
             popup.navigationDelegate = self
             popup.uiDelegate = self
@@ -90,7 +89,6 @@ struct LoginWebView: NSViewRepresentable {
             return popup
         }
 
-        // Handle popup close (Google OAuth calls window.close() when done)
         func webViewDidClose(_ webView: WKWebView) {
             if webView === popupWebView {
                 closePopup()

@@ -24,8 +24,8 @@ final class LoginWindowController {
 
         let hostingView = NSHostingView(rootView: loginView)
         let w = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 800, height: 600),
-            styleMask: [.titled, .closable, .resizable, .miniaturizable],
+            contentRect: NSRect(x: 0, y: 0, width: 400, height: 720),
+            styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
         )
@@ -33,7 +33,6 @@ final class LoginWindowController {
         w.title = "Add Claude Account"
         w.center()
         w.isReleasedWhenClosed = false
-        w.minSize = NSSize(width: 600, height: 400)
 
         self.window = w
 
