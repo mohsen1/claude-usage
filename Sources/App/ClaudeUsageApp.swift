@@ -3,13 +3,14 @@ import SwiftUI
 @main
 struct ClaudeUsageApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    @State private var store = AccountStore()
 
     var body: some Scene {
         MenuBarExtra {
-            Text("Claude Usage")
-                .padding()
+            PopoverView(store: store)
         } label: {
-            Text("—%")
+            Text(store.menuBarText)
+                .monospacedDigit()
         }
         .menuBarExtraStyle(.window)
     }
