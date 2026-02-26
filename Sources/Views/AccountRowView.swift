@@ -6,6 +6,7 @@ struct AccountRowView: View {
     let error: String?
     let isPrimary: Bool
     let onTap: () -> Void
+    let onRemove: () -> Void
 
     var body: some View {
         Button(action: onTap) {
@@ -49,5 +50,10 @@ struct AccountRowView: View {
             .padding(.vertical, 4)
         }
         .buttonStyle(.plain)
+        .contextMenu {
+            Button("Remove Account", role: .destructive) {
+                onRemove()
+            }
+        }
     }
 }
