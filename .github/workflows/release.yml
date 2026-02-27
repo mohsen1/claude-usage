@@ -102,6 +102,7 @@ jobs:
           xcodebuild -scheme ClaudeUsage -configuration Release \
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="Developer ID Application" \
+            DEVELOPMENT_TEAM="${{ secrets.APPLE_TEAM_ID }}" \
             -derivedDataPath build \
             clean build
 
