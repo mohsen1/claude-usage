@@ -58,6 +58,20 @@ final class AccountStore {
         primaryAccountId = account.id
     }
 
+    func updateSessionKey(for accountId: UUID, newKey: String) {
+        guard let index = accounts.firstIndex(where: { $0.id == accountId }) else { return }
+        accounts[index].sessionKey = newKey
+        errors.removeValue(forKey: accountId)
+        save()
+        Task { await refreshAll() }
+    }
+
+    func renewSession(for account: Account) {
+        LoginWindowController.shared.showRenew(account: account) { [weak self] newKey in
+            self?.updateSessionKey(for: account.id, newKey: newKey)
+        }
+    }
+
     func refreshAll() async {
         isLoading = true
         defer { isLoading = false }

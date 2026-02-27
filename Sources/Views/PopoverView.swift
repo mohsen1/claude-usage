@@ -27,7 +27,8 @@ struct PopoverView: View {
                         error: store.errors[account.id],
                         isPrimary: store.primaryAccountId == account.id,
                         onTap: { store.setPrimary(account) },
-                        onRemove: { store.removeAccount(account) }
+                        onRemove: { store.removeAccount(account) },
+                        onRenew: { store.renewSession(for: account) }
                     )
                     .padding(.horizontal, 12)
                     if account.id != store.accounts.last?.id {

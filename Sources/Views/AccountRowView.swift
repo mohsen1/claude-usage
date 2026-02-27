@@ -7,6 +7,7 @@ struct AccountRowView: View {
     let isPrimary: Bool
     let onTap: () -> Void
     let onRemove: () -> Void
+    let onRenew: () -> Void
 
     var body: some View {
         Button(action: onTap) {
@@ -23,10 +24,16 @@ struct AccountRowView: View {
                         .fontWeight(isPrimary ? .semibold : .regular)
                         .lineLimit(1)
                     Spacer()
-                    if let error {
-                        Text(error)
-                            .font(.caption2)
-                            .foregroundStyle(.red)
+                    if error != nil {
+                        Button {
+                            onRenew()
+                        } label: {
+                            Text("Session expired")
+                                .font(.caption2)
+                                .foregroundStyle(.red)
+                                .underline()
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
                 if let usage {
@@ -51,9 +58,9 @@ struct AccountRowView: View {
         }
         .buttonStyle(.plain)
         .contextMenu {
-            Button("Remove Account", role: .destructive) {
-                onRemove()
-            }
+            Button("Renew Session") { onRenew() }
+            Divider()
+            Button("Remove Account", role: .destructive) { onRemove() }
         }
     }
 }

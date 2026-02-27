@@ -7,18 +7,36 @@ final class LoginWindowController {
 
     private var window: NSWindow?
     private var onAccount: ((Account) -> Void)?
+    private var onSessionKey: ((String) -> Void)?
 
+    /// Open login for adding a new account
     func showLogin(onAccount: @escaping (Account) -> Void) {
         self.onAccount = onAccount
+        self.onSessionKey = nil
+        openWindow(title: "Add Claude Account", mode: .newAccount)
+    }
 
+    /// Open login to renew an expired session
+    func showRenew(account: Account, onSessionKey: @escaping (String) -> Void) {
+        self.onSessionKey = onSessionKey
+        self.onAccount = nil
+        openWindow(title: "Renew Session — \(account.displayName)", mode: .renewSession)
+    }
+
+    private func openWindow(title: String, mode: LoginMode) {
         if let existing = window {
             existing.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
             return
         }
 
-        let loginView = LoginContainerView { [weak self] account in
-            self?.onAccount?(account)
+        let loginView = LoginContainerView(mode: mode) { [weak self] result in
+            switch result {
+            case .newAccount(let account):
+                self?.onAccount?(account)
+            case .renewedSession(let sessionKey):
+                self?.onSessionKey?(sessionKey)
+            }
             self?.close()
         }
 
@@ -30,7 +48,7 @@ final class LoginWindowController {
             defer: false
         )
         w.contentView = hostingView
-        w.title = "Add Claude Account"
+        w.title = title
         w.center()
         w.isReleasedWhenClosed = false
 
@@ -45,12 +63,24 @@ final class LoginWindowController {
         window?.close()
         window = nil
         onAccount = nil
+        onSessionKey = nil
         NSApp.setActivationPolicy(.accessory)
     }
 }
 
+enum LoginMode {
+    case newAccount
+    case renewSession
+}
+
+enum LoginResult {
+    case newAccount(Account)
+    case renewedSession(String)
+}
+
 private struct LoginContainerView: View {
-    let onAccount: (Account) -> Void
+    let mode: LoginMode
+    let onResult: (LoginResult) -> Void
     @State private var status: LoginStatus = .waitingForLogin
 
     enum LoginStatus {
@@ -63,8 +93,9 @@ private struct LoginContainerView: View {
     var body: some View {
         VStack(spacing: 0) {
             statusBar
+            emailHint
             LoginWebView { sessionKey in
-                validateAndCreate(sessionKey: sessionKey)
+                handleSessionKey(sessionKey)
             }
         }
     }
@@ -73,13 +104,19 @@ private struct LoginContainerView: View {
         HStack {
             switch status {
             case .waitingForLogin:
-                Label("Log in to your Claude account", systemImage: "person.crop.circle")
+                Label(
+                    mode == .renewSession ? "Log in to renew your session" : "Log in to your Claude account",
+                    systemImage: "person.crop.circle"
+                )
             case .validating:
                 ProgressView().controlSize(.small)
                 Text("Validating session...")
             case .success:
-                Label("Account added!", systemImage: "checkmark.circle.fill")
-                    .foregroundStyle(.green)
+                Label(
+                    mode == .renewSession ? "Session renewed!" : "Account added!",
+                    systemImage: "checkmark.circle.fill"
+                )
+                .foregroundStyle(.green)
             case .failed(let msg):
                 Label(msg, systemImage: "xmark.circle.fill")
                     .foregroundStyle(.red)
@@ -92,7 +129,20 @@ private struct LoginContainerView: View {
         .background(.bar)
     }
 
-    private func validateAndCreate(sessionKey: String) {
+    private var emailHint: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "envelope.fill")
+                .font(.caption2)
+            Text("Use email login — Google sign-in is not supported")
+                .font(.caption2)
+        }
+        .foregroundStyle(.secondary)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 6)
+        .background(Color.primary.opacity(0.05))
+    }
+
+    private func handleSessionKey(_ sessionKey: String) {
         status = .validating
         Task {
             do {
@@ -101,16 +151,25 @@ private struct LoginContainerView: View {
                     status = .failed("No organization found")
                     return
                 }
-                let account = Account(
-                    id: UUID(),
-                    sessionKey: sessionKey,
-                    organizationId: org.uuid,
-                    organizationName: org.name,
-                    createdAt: Date()
-                )
-                status = .success
-                try? await Task.sleep(for: .seconds(1))
-                onAccount(account)
+
+                switch mode {
+                case .renewSession:
+                    status = .success
+                    try? await Task.sleep(for: .seconds(0.5))
+                    onResult(.renewedSession(sessionKey))
+
+                case .newAccount:
+                    let account = Account(
+                        id: UUID(),
+                        sessionKey: sessionKey,
+                        organizationId: org.uuid,
+                        organizationName: org.name,
+                        createdAt: Date()
+                    )
+                    status = .success
+                    try? await Task.sleep(for: .seconds(0.5))
+                    onResult(.newAccount(account))
+                }
             } catch {
                 status = .failed(error.localizedDescription)
             }
