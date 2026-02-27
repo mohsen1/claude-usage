@@ -1,0 +1,132 @@
+# Builds, signs, notarizes, and publishes a release when a version tag is pushed.
+#
+# Usage:
+#   git tag v0.1.0 && git push origin v0.1.0
+#
+# Required secrets for signed + notarized builds (recommended):
+#   DEVELOPER_ID_CERTIFICATE_P12  - Base64-encoded Developer ID Application certificate (.p12)
+#   DEVELOPER_ID_CERTIFICATE_PASSWORD - Password for the .p12 file
+#   APPLE_ID - Apple ID email for notarization
+#   APPLE_ID_PASSWORD - App-specific password (https://appleid.apple.com/account/manage)
+#   APPLE_TEAM_ID - Apple Developer Team ID
+#
+# Without these secrets the workflow still runs but produces an unsigned build
+# (users will need to right-click → Open on first launch).
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install xcodegen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Set version from tag
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" Resources/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${{ github.run_number }}" Resources/Info.plist
+
+      - name: Import signing certificate
+        if: env.HAS_CERTIFICATE == 'true'
+        env:
+          HAS_CERTIFICATE: ${{ secrets.DEVELOPER_ID_CERTIFICATE_P12 != '' }}
+          P12_BASE64: ${{ secrets.DEVELOPER_ID_CERTIFICATE_P12 }}
+          P12_PASSWORD: ${{ secrets.DEVELOPER_ID_CERTIFICATE_PASSWORD }}
+        run: |
+          CERT_PATH="$RUNNER_TEMP/certificate.p12"
+          KEYCHAIN_PATH="$RUNNER_TEMP/build.keychain-db"
+          echo -n "$P12_BASE64" | base64 --decode -o "$CERT_PATH"
+          security create-keychain -p "" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "" "$KEYCHAIN_PATH"
+          security import "$CERT_PATH" -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: -k "" "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH" login.keychain-db
+
+      - name: Build (signed)
+        if: env.HAS_CERTIFICATE == 'true'
+        env:
+          HAS_CERTIFICATE: ${{ secrets.DEVELOPER_ID_CERTIFICATE_P12 != '' }}
+        run: |
+          xcodebuild -scheme ClaudeUsage -configuration Release \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Developer ID Application" \
+            -derivedDataPath build \
+            clean build
+
+      - name: Build (unsigned)
+        if: env.HAS_CERTIFICATE != 'true'
+        env:
+          HAS_CERTIFICATE: ${{ secrets.DEVELOPER_ID_CERTIFICATE_P12 != '' }}
+        run: |
+          xcodebuild -scheme ClaudeUsage -configuration Release \
+            CODE_SIGN_IDENTITY="-" \
+            -derivedDataPath build \
+            clean build
+
+      - name: Prepare app bundle
+        run: |
+          APP_PATH="build/Build/Products/Release/ClaudeUsage.app"
+          echo "APP_PATH=$APP_PATH" >> $GITHUB_ENV
+          # Verify the app exists
+          test -d "$APP_PATH"
+
+      - name: Notarize
+        if: env.HAS_CERTIFICATE == 'true'
+        env:
+          HAS_CERTIFICATE: ${{ secrets.DEVELOPER_ID_CERTIFICATE_P12 != '' }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          # Create zip for notarization
+          ditto -c -k --keepParent "$APP_PATH" "$RUNNER_TEMP/ClaudeUsage.zip"
+          xcrun notarytool submit "$RUNNER_TEMP/ClaudeUsage.zip" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_ID_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+          xcrun stapler staple "$APP_PATH"
+
+      - name: Create DMG
+        run: |
+          DMG_PATH="$RUNNER_TEMP/ClaudeUsage.dmg"
+          # Create a temporary folder with app + Applications symlink
+          DMG_STAGE="$RUNNER_TEMP/dmg-stage"
+          mkdir -p "$DMG_STAGE"
+          cp -R "$APP_PATH" "$DMG_STAGE/"
+          ln -s /Applications "$DMG_STAGE/Applications"
+          hdiutil create -volname "Claude Usage" \
+            -srcfolder "$DMG_STAGE" \
+            -ov -format UDZO \
+            "$DMG_PATH"
+          echo "DMG_PATH=$DMG_PATH" >> $GITHUB_ENV
+
+      - name: Create zip
+        run: |
+          ZIP_PATH="$RUNNER_TEMP/ClaudeUsage.zip"
+          ditto -c -k --keepParent "$APP_PATH" "$ZIP_PATH"
+          echo "ZIP_PATH=$ZIP_PATH" >> $GITHUB_ENV
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            ${{ env.DMG_PATH }}
+            ${{ env.ZIP_PATH }}
