@@ -11,10 +11,44 @@ struct LoginWebView: NSViewRepresentable {
         prefs.allowsContentJavaScript = true
         config.defaultWebpagePreferences = prefs
 
+        // Hide the broken Google Sign-In button (it never loads in WKWebView)
+        // and the "Download desktop app" button
+        let hideGoogleCSS = WKUserScript(
+            source: """
+            (function() {
+                var style = document.createElement('style');
+                style.textContent = `
+                    #google-signin-btn, [data-testid="google-signin"],
+                    div:has(> iframe[src*="accounts.google.com"]),
+                    a[href*="download"], button:has(svg path[d*="M18.71"]),
+                    div:has(> div > div:first-child > div[style*="Loading"]) { display: none !important; }
+                `;
+                document.head.appendChild(style);
+                // Also observe for dynamically added elements
+                new MutationObserver(function() {
+                    document.querySelectorAll('div').forEach(function(el) {
+                        var text = el.textContent.trim();
+                        if (text === 'Loading...' && el.closest('button,a,[role="button"]')) {
+                            var container = el.closest('button,a,[role="button"]');
+                            if (container) container.style.display = 'none';
+                        }
+                        if (text === 'Download desktop app') {
+                            var btn = el.closest('button,a,[role="button"]');
+                            if (btn) btn.style.display = 'none';
+                        }
+                    });
+                }).observe(document.body || document.documentElement, {childList: true, subtree: true});
+            })();
+            """,
+            injectionTime: .atDocumentEnd,
+            forMainFrameOnly: true
+        )
+        config.userContentController.addUserScript(hideGoogleCSS)
+
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = context.coordinator
         webView.uiDelegate = context.coordinator
-        // iPhone UA — forces mobile layout, Google serves redirect-based OAuth
+        // iPhone UA — forces mobile layout
         webView.customUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.3 Mobile/15E148 Safari/604.1"
         webView.load(URLRequest(url: URL(string: "https://claude.ai/login")!))
         context.coordinator.mainWebView = webView
@@ -33,8 +67,6 @@ struct LoginWebView: NSViewRepresentable {
         weak var mainWebView: WKWebView?
         private var timer: Timer?
         private var found = false
-        private var popupWindow: NSWindow?
-        private var popupWebView: WKWebView?
 
         init(onSessionKey: @escaping (String) -> Void) {
             self.onSessionKey = onSessionKey
@@ -50,7 +82,6 @@ struct LoginWebView: NSViewRepresentable {
                         self.timer?.invalidate()
                         self.timer = nil
                         DispatchQueue.main.async {
-                            self.closePopup()
                             self.onSessionKey(session.value)
                         }
                     }
@@ -67,38 +98,11 @@ struct LoginWebView: NSViewRepresentable {
         // MARK: - WKUIDelegate
 
         func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
-            let popup = WKWebView(frame: .zero, configuration: configuration)
-            popup.navigationDelegate = self
-            popup.uiDelegate = self
-            popup.customUserAgent = webView.customUserAgent
-
-            let window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 500, height: 650),
-                styleMask: [.titled, .closable, .resizable],
-                backing: .buffered,
-                defer: false
-            )
-            window.contentView = popup
-            window.title = "Sign In"
-            window.center()
-            window.level = .floating
-            window.makeKeyAndOrderFront(nil)
-
-            self.popupWindow = window
-            self.popupWebView = popup
-            return popup
-        }
-
-        func webViewDidClose(_ webView: WKWebView) {
-            if webView === popupWebView {
-                closePopup()
+            // Load popup URLs in the same webview
+            if let url = navigationAction.request.url {
+                webView.load(URLRequest(url: url))
             }
-        }
-
-        private func closePopup() {
-            popupWindow?.close()
-            popupWindow = nil
-            popupWebView = nil
+            return nil
         }
 
         deinit {
