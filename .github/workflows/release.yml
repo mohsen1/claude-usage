@@ -1,7 +1,8 @@
-# Builds, signs, notarizes, and publishes a release when a version tag is pushed.
+# Builds, signs, notarizes, and publishes a release.
 #
-# Usage:
-#   git tag v0.1.0 && git push origin v0.1.0
+# Trigger:
+#   - Push a tag: git tag v0.1.0 && git push origin v0.1.0
+#   - Manual: Actions → Release → Run workflow → enter version (e.g. 0.2.0)
 #
 # Required secrets for signed + notarized builds (recommended):
 #   DEVELOPER_ID_CERTIFICATE_P12  - Base64-encoded Developer ID Application certificate (.p12)
@@ -19,6 +20,12 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (e.g. 0.2.0)"
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -29,15 +36,30 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Resolve version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION="${GITHUB_REF_NAME#v}"
+          fi
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "TAG=v$VERSION" >> $GITHUB_ENV
+
+      - name: Create and push tag
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          git tag "$TAG"
+          git push origin "$TAG"
+
       - name: Install xcodegen
         run: brew install xcodegen
 
       - name: Generate Xcode project
         run: xcodegen generate
 
-      - name: Set version from tag
+      - name: Set version in Info.plist
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
           /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" Resources/Info.plist
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${{ github.run_number }}" Resources/Info.plist
 
@@ -83,7 +105,6 @@ jobs:
         run: |
           APP_PATH="build/Build/Products/Release/ClaudeUsage.app"
           echo "APP_PATH=$APP_PATH" >> $GITHUB_ENV
-          # Verify the app exists
           test -d "$APP_PATH"
 
       - name: Notarize
@@ -94,7 +115,6 @@ jobs:
           APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
-          # Create zip for notarization
           ditto -c -k --keepParent "$APP_PATH" "$RUNNER_TEMP/ClaudeUsage.zip"
           xcrun notarytool submit "$RUNNER_TEMP/ClaudeUsage.zip" \
             --apple-id "$APPLE_ID" \
@@ -105,8 +125,7 @@ jobs:
 
       - name: Create DMG
         run: |
-          DMG_PATH="$RUNNER_TEMP/ClaudeUsage.dmg"
-          # Create a temporary folder with app + Applications symlink
+          DMG_PATH="$RUNNER_TEMP/ClaudeUsage-$VERSION.dmg"
           DMG_STAGE="$RUNNER_TEMP/dmg-stage"
           mkdir -p "$DMG_STAGE"
           cp -R "$APP_PATH" "$DMG_STAGE/"
@@ -119,13 +138,14 @@ jobs:
 
       - name: Create zip
         run: |
-          ZIP_PATH="$RUNNER_TEMP/ClaudeUsage.zip"
+          ZIP_PATH="$RUNNER_TEMP/ClaudeUsage-$VERSION.zip"
           ditto -c -k --keepParent "$APP_PATH" "$ZIP_PATH"
           echo "ZIP_PATH=$ZIP_PATH" >> $GITHUB_ENV
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ env.TAG }}
           generate_release_notes: true
           files: |
             ${{ env.DMG_PATH }}
