@@ -16,19 +16,8 @@ A minimal macOS menu bar app that monitors your Claude usage across multiple acc
 
 ## Screenshot
 
-```
-┌──────────────────────────────────┐
-│  ● Account 1 (me@work.com)      │
-│    Session  ████████░░  78%  2h  │
-│    Weekly   ██░░░░░░░░  17%  3d  │
-│                                  │
-│  ○ Account 2 (me@personal.com)   │
-│    Session  ████░░░░░░  42%  4h  │
-│    Weekly   █░░░░░░░░░   8%  5d  │
-│                                  │
-│  [+ Add Account]           [⏻]  │
-└──────────────────────────────────┘
-```
+<img width="295" height="403" alt="Screenshot 2026-02-27 at 00 24 12" src="https://github.com/user-attachments/assets/99133c1c-67a0-4e6a-96ab-4280194b8c32" />
+
 
 ## Requirements
 
