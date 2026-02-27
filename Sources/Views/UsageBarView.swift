@@ -14,31 +14,34 @@ struct UsageBarView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            HStack {
-                Text(label)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Text("\(percentage)%")
-                    .font(.caption2.monospacedDigit())
-                    .foregroundStyle(.secondary)
-                if let resetTime {
-                    Text(resetTime)
-                        .font(.caption2.monospacedDigit())
-                        .foregroundStyle(.tertiary)
-                }
-            }
+        HStack(spacing: 6) {
+            Text(label)
+                .font(.system(size: 9.5))
+                .foregroundStyle(.tertiary)
+                .frame(width: 44, alignment: .leading)
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     Capsule()
-                        .fill(.quaternary)
+                        .fill(Color.primary.opacity(0.08))
                     Capsule()
                         .fill(barColor)
-                        .frame(width: geo.size.width * CGFloat(percentage) / 100)
+                        .frame(width: max(0, geo.size.width * CGFloat(percentage) / 100))
                 }
             }
-            .frame(height: 4)
+            .frame(height: 5)
+            Text("\(percentage)%")
+                .font(.system(size: 10, design: .monospaced))
+                .foregroundStyle(.secondary)
+                .frame(width: 30, alignment: .trailing)
+            if let resetTime {
+                Text(resetTime)
+                    .font(.system(size: 9, design: .monospaced))
+                    .foregroundStyle(.quaternary)
+                    .frame(width: 22, alignment: .trailing)
+            } else {
+                Spacer().frame(width: 22)
+            }
         }
+        .frame(height: 14)
     }
 }

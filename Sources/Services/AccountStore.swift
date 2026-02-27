@@ -9,6 +9,9 @@ final class AccountStore {
     var primaryAccountId: UUID?
     var isLoading = false
     var errors: [UUID: String] = [:]
+    var claudeCodeSwitching: UUID?
+    var claudeCodeAccountId: UUID?
+    var claudeCodeError: String?
 
     private var pollTask: Task<Void, Never>?
     private let api = UsageAPIService.shared
@@ -112,6 +115,29 @@ final class AccountStore {
     func stopPolling() {
         pollTask?.cancel()
         pollTask = nil
+    }
+
+    func switchClaudeCode(to account: Account) {
+        claudeCodeSwitching = account.id
+        claudeCodeError = nil
+        Task {
+            do {
+                try await ClaudeCodeService.shared.switchAccount(
+                    sessionKey: account.sessionKey,
+                    organizationId: account.organizationId,
+                    organizationName: account.displayName
+                )
+                claudeCodeAccountId = account.id
+                claudeCodeSwitching = nil
+            } catch {
+                claudeCodeError = error.localizedDescription
+                claudeCodeSwitching = nil
+                Task {
+                    try? await Task.sleep(for: .seconds(3))
+                    await MainActor.run { self.claudeCodeError = nil }
+                }
+            }
+        }
     }
 
     private func save() {

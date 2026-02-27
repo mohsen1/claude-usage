@@ -19,26 +19,32 @@ struct PopoverView: View {
 
     private var accountList: some View {
         ScrollView {
-            LazyVStack(spacing: 2) {
+            LazyVStack(spacing: 8) {
                 ForEach(store.accounts) { account in
                     AccountRowView(
                         account: account,
                         usage: store.usageByAccount[account.id],
                         error: store.errors[account.id],
                         isPrimary: store.primaryAccountId == account.id,
+                        isClaudeCodeAccount: store.claudeCodeAccountId == account.id,
+                        isClaudeCodeSwitching: store.claudeCodeSwitching == account.id,
                         onTap: { store.setPrimary(account) },
                         onRemove: { store.removeAccount(account) },
-                        onRenew: { store.renewSession(for: account) }
+                        onRenew: { store.renewSession(for: account) },
+                        onSwitchClaudeCode: { store.switchClaudeCode(to: account) }
                     )
-                    .padding(.horizontal, 12)
-                    if account.id != store.accounts.last?.id {
-                        Divider().padding(.horizontal, 12)
-                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(Color.primary.opacity(0.04))
+                    )
                 }
             }
+            .padding(.horizontal, 8)
             .padding(.vertical, 8)
         }
-        .frame(maxHeight: 380)
+        .frame(maxHeight: 420)
     }
 
     private var emptyState: some View {

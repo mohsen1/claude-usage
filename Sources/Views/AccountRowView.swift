@@ -5,24 +5,31 @@ struct AccountRowView: View {
     let usage: UsageData?
     let error: String?
     let isPrimary: Bool
+    let isClaudeCodeAccount: Bool
+    let isClaudeCodeSwitching: Bool
     let onTap: () -> Void
     let onRemove: () -> Void
     let onRenew: () -> Void
+    let onSwitchClaudeCode: () -> Void
 
     var body: some View {
         Button(action: onTap) {
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
                     Circle()
                         .fill(isPrimary ? Color.blue : Color.clear)
                         .overlay(
                             Circle().stroke(isPrimary ? Color.clear : Color.gray.opacity(0.3), lineWidth: 1)
                         )
-                        .frame(width: 7, height: 7)
+                        .frame(width: 6, height: 6)
                     Text(account.displayName)
-                        .font(.caption)
-                        .fontWeight(isPrimary ? .semibold : .regular)
+                        .font(.system(size: 11, weight: isPrimary ? .semibold : .regular))
                         .lineLimit(1)
+                    if isClaudeCodeAccount {
+                        Image(systemName: "terminal")
+                            .font(.system(size: 8))
+                            .foregroundStyle(.green)
+                    }
                     Spacer()
                     if let error {
                         let isAuth = error == "Session expired"
@@ -30,8 +37,8 @@ struct AccountRowView: View {
                             if isAuth { onRenew() }
                         } label: {
                             Text(isAuth ? "Session expired" : error)
-                                .font(.caption2)
-                                .foregroundStyle(.red)
+                                .font(.system(size: 9))
+                                .foregroundStyle(isAuth ? .red : .secondary)
                                 .underline(isAuth)
                         }
                         .buttonStyle(.plain)
@@ -56,10 +63,22 @@ struct AccountRowView: View {
                         .padding(.vertical, 2)
                 }
             }
-            .padding(.vertical, 4)
+            .padding(.vertical, 5)
         }
         .buttonStyle(.plain)
         .contextMenu {
+            Button {
+                onSwitchClaudeCode()
+            } label: {
+                if isClaudeCodeSwitching {
+                    Text("Switching...")
+                } else if isClaudeCodeAccount {
+                    Label("Claude Code (active)", systemImage: "checkmark")
+                } else {
+                    Label("Switch Claude Code", systemImage: "terminal")
+                }
+            }
+            .disabled(isClaudeCodeSwitching || isClaudeCodeAccount)
             Button("Renew Session") { onRenew() }
             Divider()
             Button("Remove Account", role: .destructive) { showConfirm = true }
