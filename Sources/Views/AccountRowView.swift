@@ -24,16 +24,18 @@ struct AccountRowView: View {
                         .fontWeight(isPrimary ? .semibold : .regular)
                         .lineLimit(1)
                     Spacer()
-                    if error != nil {
+                    if let error {
+                        let isAuth = error == "Session expired"
                         Button {
-                            onRenew()
+                            if isAuth { onRenew() }
                         } label: {
-                            Text("Session expired")
+                            Text(isAuth ? "Session expired" : error)
                                 .font(.caption2)
                                 .foregroundStyle(.red)
-                                .underline()
+                                .underline(isAuth)
                         }
                         .buttonStyle(.plain)
+                        .disabled(!isAuth)
                     }
                 }
                 if let usage {

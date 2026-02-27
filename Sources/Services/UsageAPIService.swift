@@ -21,7 +21,7 @@ actor UsageAPIService {
         var request = URLRequest(url: url)
         applyHeaders(&request, sessionKey: sessionKey)
         let (data, response) = try await session.data(for: request)
-        try checkResponse(response)
+        try checkResponse(response, data: data)
         return try JSONDecoder().decode([Organization].self, from: data)
     }
 
@@ -30,7 +30,7 @@ actor UsageAPIService {
         var request = URLRequest(url: url)
         applyHeaders(&request, sessionKey: sessionKey)
         let (data, response) = try await session.data(for: request)
-        try checkResponse(response)
+        try checkResponse(response, data: data)
         return try JSONDecoder().decode(UsageData.self, from: data)
     }
 
@@ -48,13 +48,16 @@ actor UsageAPIService {
         request.setValue("empty", forHTTPHeaderField: "Sec-Fetch-Dest")
     }
 
-    private func checkResponse(_ response: URLResponse) throws {
+    private func checkResponse(_ response: URLResponse, data: Data) throws {
         guard let http = response as? HTTPURLResponse else {
             throw APIError.invalidResponse
         }
         switch http.statusCode {
         case 200...299: return
-        case 401, 403: throw APIError.unauthorized
+        case 401: throw APIError.unauthorized
+        case 403:
+            let body = String(data: data.prefix(200), encoding: .utf8) ?? ""
+            throw APIError.forbidden(body)
         case 429: throw APIError.rateLimited
         default: throw APIError.httpError(http.statusCode)
         }
@@ -64,15 +67,21 @@ actor UsageAPIService {
 enum APIError: Error, LocalizedError {
     case invalidResponse
     case unauthorized
+    case forbidden(String)
     case rateLimited
     case httpError(Int)
 
     var errorDescription: String? {
         switch self {
-        case .invalidResponse: "Invalid response"
-        case .unauthorized: "Session expired"
-        case .rateLimited: "Rate limited"
-        case .httpError(let code): "HTTP \(code)"
+        case .invalidResponse: return "Invalid response"
+        case .unauthorized: return "Session expired"
+        case .forbidden(let detail):
+            if detail.lowercased().contains("cloudflare") || detail.contains("cf-") {
+                return "Blocked by Cloudflare"
+            }
+            return "Forbidden (403)"
+        case .rateLimited: return "Rate limited"
+        case .httpError(let code): return "HTTP \(code)"
         }
     }
 }
