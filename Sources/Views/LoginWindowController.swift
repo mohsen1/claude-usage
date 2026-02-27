@@ -90,14 +90,57 @@ private struct LoginContainerView: View {
         case failed(String)
     }
 
+    @State private var webViewRef = WebViewRef()
+
     var body: some View {
         VStack(spacing: 0) {
             statusBar
             emailHint
-            LoginWebView { sessionKey in
+            browserToolbar
+            LoginWebView(webViewRef: webViewRef) { sessionKey in
                 handleSessionKey(sessionKey)
             }
         }
+    }
+
+    private var browserToolbar: some View {
+        HStack(spacing: 12) {
+            Button {
+                webViewRef.webView?.goBack()
+            } label: {
+                Image(systemName: "chevron.left")
+                    .font(.caption)
+            }
+            .buttonStyle(.plain)
+            .disabled(!(webViewRef.canGoBack))
+
+            Button {
+                webViewRef.webView?.goForward()
+            } label: {
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+            }
+            .buttonStyle(.plain)
+            .disabled(!(webViewRef.canGoForward))
+
+            Button {
+                webViewRef.webView?.reload()
+            } label: {
+                Image(systemName: "arrow.clockwise")
+                    .font(.caption)
+            }
+            .buttonStyle(.plain)
+
+            Spacer()
+
+            if webViewRef.isLoading {
+                ProgressView()
+                    .controlSize(.mini)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(.bar)
     }
 
     private var statusBar: some View {
@@ -131,15 +174,15 @@ private struct LoginContainerView: View {
 
     private var emailHint: some View {
         HStack(spacing: 4) {
-            Image(systemName: "envelope.fill")
+            Image(systemName: "exclamationmark.triangle.fill")
                 .font(.caption2)
             Text("Use email login — Google sign-in is not supported")
                 .font(.caption2)
         }
-        .foregroundStyle(.secondary)
+        .foregroundStyle(.black.opacity(0.8))
         .frame(maxWidth: .infinity)
         .padding(.vertical, 6)
-        .background(Color.primary.opacity(0.05))
+        .background(Color.yellow.opacity(0.7))
     }
 
     private func handleSessionKey(_ sessionKey: String) {

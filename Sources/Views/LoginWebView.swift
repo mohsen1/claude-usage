@@ -1,7 +1,17 @@
 import SwiftUI
 import WebKit
 
+@Observable
+@MainActor
+final class WebViewRef {
+    var webView: WKWebView?
+    var canGoBack = false
+    var canGoForward = false
+    var isLoading = false
+}
+
 struct LoginWebView: NSViewRepresentable {
+    let webViewRef: WebViewRef
     let onSessionKey: (String) -> Void
 
     func makeNSView(context: Context) -> WKWebView {
@@ -11,8 +21,7 @@ struct LoginWebView: NSViewRepresentable {
         prefs.allowsContentJavaScript = true
         config.defaultWebpagePreferences = prefs
 
-        // Hide the broken Google Sign-In button (it never loads in WKWebView)
-        // and the "Download desktop app" button
+        // Hide the broken Google Sign-In button and "Download desktop app"
         let hideGoogleCSS = WKUserScript(
             source: """
             (function() {
@@ -24,7 +33,6 @@ struct LoginWebView: NSViewRepresentable {
                     div:has(> div > div:first-child > div[style*="Loading"]) { display: none !important; }
                 `;
                 document.head.appendChild(style);
-                // Also observe for dynamically added elements
                 new MutationObserver(function() {
                     document.querySelectorAll('div').forEach(function(el) {
                         var text = el.textContent.trim();
@@ -48,11 +56,17 @@ struct LoginWebView: NSViewRepresentable {
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = context.coordinator
         webView.uiDelegate = context.coordinator
-        // iPhone UA — forces mobile layout
         webView.customUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.3 Mobile/15E148 Safari/604.1"
         webView.load(URLRequest(url: URL(string: "https://claude.ai/login")!))
+
         context.coordinator.mainWebView = webView
+        context.coordinator.webViewRef = webViewRef
         context.coordinator.startCookiePolling(webView: webView)
+
+        Task { @MainActor in
+            webViewRef.webView = webView
+        }
+
         return webView
     }
 
@@ -65,6 +79,7 @@ struct LoginWebView: NSViewRepresentable {
     class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
         let onSessionKey: (String) -> Void
         weak var mainWebView: WKWebView?
+        weak var webViewRef: WebViewRef?
         private var timer: Timer?
         private var found = false
 
@@ -95,10 +110,30 @@ struct LoginWebView: NSViewRepresentable {
             decisionHandler(.allow)
         }
 
+        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            updateNavState(webView)
+        }
+
+        func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+            updateNavState(webView)
+        }
+
+        func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+            updateNavState(webView)
+        }
+
+        private func updateNavState(_ webView: WKWebView) {
+            Task { @MainActor [weak self] in
+                guard let ref = self?.webViewRef else { return }
+                ref.canGoBack = webView.canGoBack
+                ref.canGoForward = webView.canGoForward
+                ref.isLoading = webView.isLoading
+            }
+        }
+
         // MARK: - WKUIDelegate
 
         func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
-            // Load popup URLs in the same webview
             if let url = navigationAction.request.url {
                 webView.load(URLRequest(url: url))
             }
