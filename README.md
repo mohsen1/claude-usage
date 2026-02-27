@@ -2,8 +2,8 @@
 
 A minimal macOS menu bar app that monitors your Claude usage across multiple accounts.
 
-![macOS 14+](https://img.shields.io/badge/macOS-14%2B-blue)
-![Swift](https://img.shields.io/badge/Swift-5.10-orange)
+<img width="296" height="407" alt="Screenshot 2026-02-27 at 08 11 08" src="https://github.com/user-attachments/assets/fc81fca8-e54b-404f-b125-30a5acbb85fb" />
+
 
 ## Features
 
@@ -14,9 +14,7 @@ A minimal macOS menu bar app that monitors your Claude usage across multiple acc
 - **Session renewal** — click "Session expired" to re-authenticate
 - **No dock icon** — lives entirely in the menu bar
 
-## Screenshot
 
-<img width="295" height="403" alt="Screenshot 2026-02-27 at 00 24 12" src="https://github.com/user-attachments/assets/99133c1c-67a0-4e6a-96ab-4280194b8c32" />
 
 
 ## Requirements
