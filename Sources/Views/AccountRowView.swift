@@ -62,7 +62,15 @@ struct AccountRowView: View {
         .contextMenu {
             Button("Renew Session") { onRenew() }
             Divider()
-            Button("Remove Account", role: .destructive) { onRemove() }
+            Button("Remove Account", role: .destructive) { showConfirm = true }
+        }
+        .alert("Remove Account", isPresented: $showConfirm) {
+            Button("Cancel", role: .cancel) {}
+            Button("Remove", role: .destructive) { onRemove() }
+        } message: {
+            Text("Remove \(account.displayName)? You'll need to log in again to re-add it.")
         }
     }
+
+    @State private var showConfirm = false
 }
