@@ -17,13 +17,13 @@ A minimal macOS menu bar app that monitors your Claude usage across multiple acc
 
 
 
-## Requirements
+## Install
 
-- macOS 14 (Sonoma) or later
-- [XcodeGen](https://github.com/yonaskolb/XcodeGen) — `brew install xcodegen`
-- Xcode Command Line Tools — `xcode-select --install`
+Download the latest `.dmg` from [Releases](../../releases/latest), open it, and drag **Claude Usage** to Applications.
 
-## Build & Run
+Requires macOS 14 (Sonoma) or later.
+
+## Build from Source
 
 ```bash
 # Generate Xcode project from YAML
@@ -39,12 +39,7 @@ make build
 make clean
 ```
 
-Or manually:
-
-```bash
-xcodegen generate
-xcodebuild -project ClaudeUsage.xcodeproj -scheme ClaudeUsage -configuration Debug build
-```
+Requires [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`) and Xcode.
 
 ## How It Works
 
