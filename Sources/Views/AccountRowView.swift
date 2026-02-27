@@ -9,63 +9,55 @@ struct AccountRowView: View {
     let isClaudeCodeSwitching: Bool
     let onTap: () -> Void
     let onRemove: () -> Void
+    let onRename: () -> Void
     let onRenew: () -> Void
     let onSwitchClaudeCode: () -> Void
 
     var body: some View {
-        Button(action: onTap) {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 6) {
-                    Circle()
-                        .fill(isPrimary ? Color.blue : Color.clear)
-                        .overlay(
-                            Circle().stroke(isPrimary ? Color.clear : Color.gray.opacity(0.3), lineWidth: 1)
-                        )
-                        .frame(width: 6, height: 6)
-                    Text(account.displayName)
-                        .font(.system(size: 11, weight: isPrimary ? .semibold : .regular))
-                        .lineLimit(1)
-                    if isClaudeCodeAccount {
-                        Image(systemName: "terminal")
-                            .font(.system(size: 8))
-                            .foregroundStyle(.green)
-                    }
-                    Spacer()
-                    if let error {
-                        let isAuth = error == "Session expired"
-                        Button {
-                            if isAuth { onRenew() }
-                        } label: {
-                            Text(isAuth ? "Session expired" : error)
-                                .font(.system(size: 9))
-                                .foregroundStyle(isAuth ? .red : .secondary)
-                                .underline(isAuth)
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(!isAuth)
-                    }
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
+                Image(systemName: isPrimary ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 12))
+                    .foregroundStyle(isPrimary ? .blue : .gray.opacity(0.5))
+                Text(account.displayName)
+                    .font(.system(size: 11, weight: isPrimary ? .semibold : .regular))
+                    .lineLimit(1)
+                if isClaudeCodeAccount {
+                    Image(systemName: "terminal")
+                        .font(.system(size: 8))
+                        .foregroundStyle(.green)
                 }
-                if let usage {
-                    UsageBarView(
-                        label: "Session",
-                        percentage: usage.sessionPercentage,
-                        resetTime: usage.fiveHour?.timeUntilReset
-                    )
-                    UsageBarView(
-                        label: "Weekly",
-                        percentage: usage.weeklyPercentage,
-                        resetTime: usage.sevenDay?.timeUntilReset
-                    )
-                } else if error == nil {
-                    ProgressView()
-                        .controlSize(.small)
-                        .frame(maxWidth: .infinity, alignment: .center)
-                        .padding(.vertical, 2)
+                Spacer()
+                if let error {
+                    let isAuth = error == "Session expired"
+                    Text(isAuth ? "Session expired" : error)
+                        .font(.system(size: 9))
+                        .foregroundStyle(isAuth ? .red : .secondary)
+                        .underline(isAuth)
+                        .onTapGesture { if isAuth { onRenew() } }
                 }
             }
-            .padding(.vertical, 5)
+            if let usage {
+                UsageBarView(
+                    label: "Session",
+                    percentage: usage.sessionPercentage,
+                    resetTime: usage.fiveHour?.timeUntilReset
+                )
+                UsageBarView(
+                    label: "Weekly",
+                    percentage: usage.weeklyPercentage,
+                    resetTime: usage.sevenDay?.timeUntilReset
+                )
+            } else if error == nil {
+                ProgressView()
+                    .controlSize(.small)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 2)
+            }
         }
-        .buttonStyle(.plain)
+        .padding(.vertical, 5)
+        .contentShape(Rectangle())
+        .onTapGesture { onTap() }
         .contextMenu {
             Button {
                 onSwitchClaudeCode()
@@ -79,17 +71,17 @@ struct AccountRowView: View {
                 }
             }
             .disabled(isClaudeCodeSwitching || isClaudeCodeAccount)
+            Button("Rename") { onRename() }
             Button("Renew Session") { onRenew() }
+            Button("Open Usage in Browser") {
+                BrowserWindowController.shared.open(
+                    url: URL(string: "https://claude.ai/settings/usage")!,
+                    sessionKey: account.sessionKey,
+                    title: "Usage — \(account.displayName)"
+                )
+            }
             Divider()
-            Button("Remove Account", role: .destructive) { showConfirm = true }
-        }
-        .alert("Remove Account", isPresented: $showConfirm) {
-            Button("Cancel", role: .cancel) {}
-            Button("Remove", role: .destructive) { onRemove() }
-        } message: {
-            Text("Remove \(account.displayName)? You'll need to log in again to re-add it.")
+            Button("Remove Account", role: .destructive) { onRemove() }
         }
     }
-
-    @State private var showConfirm = false
 }

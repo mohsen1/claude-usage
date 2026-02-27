@@ -8,6 +8,51 @@ final class WebViewRef {
     var canGoBack = false
     var canGoForward = false
     var isLoading = false
+    var currentURL: String = ""
+}
+
+struct BrowserToolbar: View {
+    let webViewRef: WebViewRef
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Button { webViewRef.webView?.goBack() } label: {
+                Image(systemName: "chevron.left").font(.caption)
+            }
+            .buttonStyle(.plain)
+            .disabled(!webViewRef.canGoBack)
+
+            Button { webViewRef.webView?.goForward() } label: {
+                Image(systemName: "chevron.right").font(.caption)
+            }
+            .buttonStyle(.plain)
+            .disabled(!webViewRef.canGoForward)
+
+            Text(webViewRef.currentURL)
+                .font(.system(size: 10, design: .monospaced))
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 3)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.primary.opacity(0.05))
+                .cornerRadius(4)
+                .textSelection(.enabled)
+
+            if webViewRef.isLoading {
+                ProgressView().controlSize(.mini)
+            }
+
+            Button { webViewRef.webView?.reload() } label: {
+                Image(systemName: "arrow.clockwise").font(.caption)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(.bar)
+    }
 }
 
 struct LoginWebView: NSViewRepresentable {
@@ -128,6 +173,7 @@ struct LoginWebView: NSViewRepresentable {
                 ref.canGoBack = webView.canGoBack
                 ref.canGoForward = webView.canGoForward
                 ref.isLoading = webView.isLoading
+                ref.currentURL = webView.url?.absoluteString ?? ""
             }
         }
 

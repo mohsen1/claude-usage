@@ -61,6 +61,12 @@ final class AccountStore {
         primaryAccountId = account.id
     }
 
+    func renameAccount(_ account: Account, alias: String?) {
+        guard let index = accounts.firstIndex(where: { $0.id == account.id }) else { return }
+        accounts[index].alias = alias?.trimmingCharacters(in: .whitespaces).isEmpty == true ? nil : alias?.trimmingCharacters(in: .whitespaces)
+        save()
+    }
+
     func updateSessionKey(for accountId: UUID, newKey: String) {
         guard let index = accounts.firstIndex(where: { $0.id == accountId }) else { return }
         accounts[index].sessionKey = newKey

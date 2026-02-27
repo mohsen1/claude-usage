@@ -104,43 +104,7 @@ private struct LoginContainerView: View {
     }
 
     private var browserToolbar: some View {
-        HStack(spacing: 12) {
-            Button {
-                webViewRef.webView?.goBack()
-            } label: {
-                Image(systemName: "chevron.left")
-                    .font(.caption)
-            }
-            .buttonStyle(.plain)
-            .disabled(!(webViewRef.canGoBack))
-
-            Button {
-                webViewRef.webView?.goForward()
-            } label: {
-                Image(systemName: "chevron.right")
-                    .font(.caption)
-            }
-            .buttonStyle(.plain)
-            .disabled(!(webViewRef.canGoForward))
-
-            Button {
-                webViewRef.webView?.reload()
-            } label: {
-                Image(systemName: "arrow.clockwise")
-                    .font(.caption)
-            }
-            .buttonStyle(.plain)
-
-            Spacer()
-
-            if webViewRef.isLoading {
-                ProgressView()
-                    .controlSize(.mini)
-            }
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-        .background(.bar)
+        BrowserToolbar(webViewRef: webViewRef)
     }
 
     private var statusBar: some View {
