@@ -103,6 +103,8 @@ jobs:
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="Developer ID Application" \
             DEVELOPMENT_TEAM="${{ secrets.APPLE_TEAM_ID }}" \
+            ENABLE_HARDENED_RUNTIME=YES \
+            OTHER_CODE_SIGN_FLAGS="--options=runtime" \
             -derivedDataPath build \
             clean build
 
@@ -131,11 +133,22 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           ditto -c -k --keepParent "$APP_PATH" "$RUNNER_TEMP/ClaudeUsage.zip"
-          xcrun notarytool submit "$RUNNER_TEMP/ClaudeUsage.zip" \
+          SUBMIT_OUT=$(xcrun notarytool submit "$RUNNER_TEMP/ClaudeUsage.zip" \
             --apple-id "$APPLE_ID" \
             --password "$APPLE_ID_PASSWORD" \
             --team-id "$APPLE_TEAM_ID" \
-            --wait
+            --wait 2>&1) || true
+          echo "$SUBMIT_OUT"
+          # Extract submission ID and fetch log if it failed
+          SUB_ID=$(echo "$SUBMIT_OUT" | grep "id:" | head -1 | awk '{print $2}')
+          if echo "$SUBMIT_OUT" | grep -q "status: Invalid"; then
+            xcrun notarytool log "$SUB_ID" \
+              --apple-id "$APPLE_ID" \
+              --password "$APPLE_ID_PASSWORD" \
+              --team-id "$APPLE_TEAM_ID" || true
+            echo "::error::Notarization failed. See log above."
+            exit 1
+          fi
           xcrun stapler staple "$APP_PATH"
 
       - name: Create DMG
