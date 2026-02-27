@@ -11,6 +11,7 @@ struct AccountRowView: View {
     let onRemove: () -> Void
     let onRename: () -> Void
     let onRenew: () -> Void
+    let onRetry: () -> Void
     let onSwitchClaudeCode: () -> Void
 
     var body: some View {
@@ -71,6 +72,9 @@ struct AccountRowView: View {
                 }
             }
             .disabled(isClaudeCodeSwitching || isClaudeCodeAccount)
+            if error != nil {
+                Button("Retry") { onRetry() }
+            }
             Button("Rename") { onRename() }
             Button("Renew Session") { onRenew() }
             Button("Open Usage in Browser") {

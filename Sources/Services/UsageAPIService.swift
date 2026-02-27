@@ -64,6 +64,13 @@ actor UsageAPIService {
     }
 }
 
+extension APIError {
+    var isForbidden: Bool {
+        if case .forbidden = self { return true }
+        return false
+    }
+}
+
 enum APIError: Error, LocalizedError {
     case invalidResponse
     case unauthorized

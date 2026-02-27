@@ -32,7 +32,7 @@ struct UsageBucket: Codable, Sendable {
             let days = hours / 24
             return "\(days)d"
         } else if hours > 0 {
-            return "\(hours)h \(minutes)m"
+            return "\(hours)h"
         } else {
             return "\(minutes)m"
         }

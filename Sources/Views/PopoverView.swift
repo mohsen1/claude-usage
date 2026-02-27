@@ -20,7 +20,7 @@ struct PopoverView: View {
 
     private var accountList: some View {
         ScrollView {
-            LazyVStack(spacing: 8) {
+            LazyVStack(spacing: 4) {
                 ForEach(store.accounts) { account in
                     AccountRowView(
                         account: account,
@@ -33,18 +33,14 @@ struct PopoverView: View {
                         onRemove: { showRemoveAlert(for: account) },
                         onRename: { showRenameAlert(for: account) },
                         onRenew: { store.renewSession(for: account) },
+                        onRetry: { Task { await store.refreshAll() } },
                         onSwitchClaudeCode: { store.switchClaudeCode(to: account) }
                     )
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
-                    .background(
-                        RoundedRectangle(cornerRadius: 6)
-                            .fill(Color.primary.opacity(0.04))
-                    )
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
                 }
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 8)
+            .padding(.vertical, 4)
         }
         .frame(maxHeight: 420)
     }
@@ -63,15 +59,25 @@ struct PopoverView: View {
     }
 
     private var footer: some View {
-        HStack {
-            Button("Add Account") {
+        HStack(spacing: 12) {
+            Button {
                 LoginWindowController.shared.showLogin { account in
                     store.addAccount(account)
                 }
+            } label: {
+                Image(systemName: "plus")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
-            .font(.caption)
             .buttonStyle(.plain)
-            .foregroundStyle(.blue)
+            Button {
+                Task { await store.refreshAll() }
+            } label: {
+                Image(systemName: "arrow.clockwise")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
             Spacer()
             Button {
                 NSApplication.shared.terminate(nil)

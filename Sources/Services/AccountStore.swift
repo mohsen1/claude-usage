@@ -96,6 +96,32 @@ final class AccountStore {
                             self.usageByAccount[account.id] = usage
                             self.errors.removeValue(forKey: account.id)
                         }
+                    } catch let error as APIError where error.isForbidden {
+                        // Org ID may be stale — try re-fetching orgs
+                        do {
+                            let orgs = try await api.fetchOrganizations(sessionKey: account.sessionKey)
+                            for org in orgs {
+                                if let usage = try? await api.fetchUsage(sessionKey: account.sessionKey, orgId: org.uuid) {
+                                    await MainActor.run {
+                                        if let idx = self.accounts.firstIndex(where: { $0.id == account.id }) {
+                                            self.accounts[idx].organizationId = org.uuid
+                                            self.accounts[idx].organizationName = org.name
+                                            self.save()
+                                        }
+                                        self.usageByAccount[account.id] = usage
+                                        self.errors.removeValue(forKey: account.id)
+                                    }
+                                    return
+                                }
+                            }
+                            await MainActor.run {
+                                self.errors[account.id] = error.localizedDescription
+                            }
+                        } catch {
+                            await MainActor.run {
+                                self.errors[account.id] = error.localizedDescription
+                            }
+                        }
                     } catch {
                         await MainActor.run {
                             self.errors[account.id] = error.localizedDescription
