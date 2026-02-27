@@ -2,7 +2,7 @@
 #
 # Trigger:
 #   - Push a tag: git tag v0.1.0 && git push origin v0.1.0
-#   - Manual: Actions → Release → Run workflow → enter version (e.g. 0.2.0)
+#   - Manual: Actions → Release → Run workflow → pick bump type (patch/minor/major)
 #
 # Required secrets for signed + notarized builds (recommended):
 #   DEVELOPER_ID_CERTIFICATE_P12  - Base64-encoded Developer ID Application certificate (.p12)
@@ -22,10 +22,15 @@ on:
       - "v*"
   workflow_dispatch:
     inputs:
-      version:
-        description: "Version to release (e.g. 0.2.0)"
+      bump:
+        description: "Version bump type"
         required: true
-        type: string
+        default: "patch"
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
 
 permissions:
   contents: write
@@ -39,7 +44,16 @@ jobs:
       - name: Resolve version
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            VERSION="${{ inputs.version }}"
+            # Get latest tag, default to v0.0.0 if none exists
+            LATEST=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+            LATEST="${LATEST#v}"
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$LATEST"
+            case "${{ inputs.bump }}" in
+              major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
+              minor) MINOR=$((MINOR + 1)); PATCH=0 ;;
+              patch) PATCH=$((PATCH + 1)) ;;
+            esac
+            VERSION="$MAJOR.$MINOR.$PATCH"
           else
             VERSION="${GITHUB_REF_NAME#v}"
           fi
